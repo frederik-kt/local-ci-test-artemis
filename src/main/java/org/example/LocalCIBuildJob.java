@@ -43,7 +43,9 @@ public class LocalCIBuildJob {
                         new Bind(submissionRepositoryPath.toString(), new Volume("/submission-repository")),
                         new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
                         new Bind(scriptPath.toString(), new Volume("/script")))
-                .withVolumes(testResultsVolume).exec();
+                .withVolumes(testResultsVolume)
+                .withEnv("SUBMISSION_REPOSITORY_PATH=" + submissionRepositoryPath, "TEST_REPOSITORY_PATH=" + testRepositoryPath)
+                .exec();
 
         // Start the container.
         dockerClient.startContainerCmd(container.getId()).exec();
