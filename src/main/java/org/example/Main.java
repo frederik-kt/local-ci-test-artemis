@@ -6,12 +6,13 @@ import java.nio.file.Paths;
 
 public class Main {
     public static void main(String[] args) {
-        Path submissionRepositoryPath = Paths.get("C:\\Users\\Kutsch\\vs-ws\\artemis_repos\\fredtestcoursetestex1-artemis_test_user_1");
-        Path testRepositoryPath = Paths.get("C:\\Users\\Kutsch\\vs-ws\\artemis_repos\\fredtestcoursetestex1-tests");
+        Path submissionRepositoryPath = Paths.get("repositories", "submission_success");
+        Path testRepositoryPath = Paths.get("repositories", "test");
         Path scriptPath = Paths.get("script.sh");
         LocalCIBuildJob localCIBuildJob = new LocalCIBuildJob(submissionRepositoryPath, testRepositoryPath, scriptPath);
         try {
-            localCIBuildJob.runBuildJob();
+            String result = localCIBuildJob.runBuildJob();
+            System.out.println(result);
         } catch (IOException e) {
             System.out.println("Error: " + e.getMessage());
         }

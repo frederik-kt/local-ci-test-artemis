@@ -4,13 +4,13 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.WaitContainerResultCallback;
 import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.core.DockerClientBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
-import java.util.concurrent.CountDownLatch;
 
 public class LocalCIBuildJob {
 
@@ -22,27 +22,27 @@ public class LocalCIBuildJob {
 
     private final DockerClient dockerClient;
 
-    private final CountDownLatch countDownLatch;
-
     public LocalCIBuildJob(Path submissionRepositoryPath, Path testRepositoryPath, Path scriptPath) {
         this.submissionRepositoryPath = submissionRepositoryPath;
         this.testRepositoryPath = testRepositoryPath;
         this.scriptPath = scriptPath;
-        this.dockerClient = DockerClientBuilder.getInstance().build();
-        this.countDownLatch = new CountDownLatch(1);
+        DockerClient dockerClient2 = DockerClientBuilder.getInstance().build();
+        dockerClient = DockerClientBuilder.getInstance().build();
     }
 
     public String runBuildJob() throws IOException {
         // Create a volume to store the test results.
         Volume testResultsVolume = new Volume("/test-results");
 
+        HostConfig bindConfig = new HostConfig();
+        bindConfig.setBinds(new Bind(submissionRepositoryPath.toString(), new Volume("/submission-repository")),
+                new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
+                new Bind(scriptPath.toString(), new Volume("/script")));
+
         // Create the container with the local paths to the Git repositories and the shell script bound to it.
         CreateContainerResponse container = dockerClient.createContainerCmd("openjdk:8-jre-alpine")
                 .withCmd("sh", scriptPath.toString())
-                .withBinds(
-                        new Bind(submissionRepositoryPath.toString(), new Volume("/submission-repository")),
-                        new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
-                        new Bind(scriptPath.toString(), new Volume("/script")))
+                .withHostConfig(bindConfig)
                 .withVolumes(testResultsVolume)
                 .withEnv("SUBMISSION_REPOSITORY_PATH=" + submissionRepositoryPath, "TEST_REPOSITORY_PATH=" + testRepositoryPath)
                 .exec();
