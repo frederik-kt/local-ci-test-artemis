@@ -69,34 +69,36 @@ public class LocalCIBuildJob {
                         "TEST_REPOSITORY_PATH=" + testRepositoryPath)
                 .exec();
 
-        // Start the container.
-        dockerClient.startContainerCmd(container.getId()).exec();
+        try {
+            // Start the container.
+            dockerClient.startContainerCmd(container.getId()).exec();
 
-        // Wait for the container to finish.
-        dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
+            // Wait for the container to finish.
+            dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
 
-        // Next step: Wie kriege ich den Content eines dort erstellten Files in eine
-        // Form, in der ich ihn weiter verarbeiten kann?
+            // Next step: Wie kriege ich den Content eines dort erstellten Files in eine
+            // Form, in der ich ihn weiter verarbeiten kann? Der Code unten schreibt in
+            // test.txt den Inhalt des zweiten erstellten Test Files.
 
-        // Retrieve the test results from the volume.
-        TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
-                dockerClient.copyArchiveFromContainerCmd(container.getId(), "/test-results").exec());
+            // Retrieve the test results from the volume.
+            TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
+                    dockerClient.copyArchiveFromContainerCmd(container.getId(), "/test-results").exec());
 
-        // TODO: For this to work the host-test-results folder must exist -> Check
-        // whether folder exists else create.
-        Path testResultsHost = Paths.get("host-test-results", "results.txt").toAbsolutePath();
+            // TODO: For this to work the host-test-results folder must exist -> Check
+            // whether folder exists else create.
+            Path testResultsHost = Paths.get("host-test-results", "results.txt").toAbsolutePath();
 
-        unTar(tarInputStream, Files.createFile(testResultsHost));
+            unTar(tarInputStream, Files.createFile(testResultsHost));
 
-        InputStream testResults = dockerClient.copyArchiveFromContainerCmd(container.getId(),
-                "/test-results").exec();
-
-        String testResultsString = new String(testResults.readAllBytes());
-
-        // Clean up the container.
-        dockerClient.removeContainerCmd(container.getId()).exec();
-
-        return testResultsString;
+            return Files.readString(testResultsHost);
+        } catch (Exception e) {
+            // TODO: handle exception
+            System.out.println(e.getStackTrace());
+            return null;
+        } finally {
+            // Clean up the container.
+            dockerClient.removeContainerCmd(container.getId()).exec();
+        }
     }
 
     private void unTar(TarArchiveInputStream tarInputStream, Path destFile) throws IOException {
