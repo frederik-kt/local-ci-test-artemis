@@ -1,17 +1,10 @@
 #!/bin/sh
 
-./gradlew clean test # Wo muss ich das machen? In Bamboo wird das assignment repository in einen "assignment"-Ordner ausgecheckt
+# Create the folder "assignment" in the test-repository.
+mkdir /test-repository/assignment
 
-# Compile the source code
-#javac -cp $SUBMISSION_REPOSITORY_PATH/libs/*:$SUBMISSION_REPOSITORY_PATH/src -d $SUBMISSION_REPOSITORY_PATH/bin
-#$SUBMISSION_REPOSITORY_PATH/src/testpackage/Client.java
+# Copy the content of the assignment-repository into the folder "assignment" in the test-repository.
+cp -a /assignment-repository/. /test-repository/assignment/
 
-# Run the tests
-#java -cp $SUBMISSION_REPOSITORY_PATH/libs/*:$SUBMISSION_REPOSITORY_PATH/bin:$TEST_REPOSITORY_PATH/libs/*:$TEST_REPOSITORY_PATH/src
-#org.junit.runner.JUnitcore testpackage.MethodTest
-
-# Save the test results
-#mv $SUBMISSION_REPOSITORY_PATH
-
-echo "testxy" > /test-results/test.txt
-echo "anothertest" > /test-results/test2.txt
+# Execute the tests.
+/test-repository/gradlew clean test

@@ -24,7 +24,7 @@ import org.apache.commons.compress.utils.IOUtils;
 
 public class LocalCIBuildJob {
 
-    private final Path submissionRepositoryPath;
+    private final Path assignmentRepositoryPath;
 
     private final Path testRepositoryPath;
 
@@ -32,8 +32,8 @@ public class LocalCIBuildJob {
 
     private final DockerClient dockerClient;
 
-    public LocalCIBuildJob(Path submissionRepositoryPath, Path testRepositoryPath, Path scriptPath) {
-        this.submissionRepositoryPath = submissionRepositoryPath;
+    public LocalCIBuildJob(Path assignmentRepositoryPath, Path testRepositoryPath, Path scriptPath) {
+        this.assignmentRepositoryPath = assignmentRepositoryPath;
         this.testRepositoryPath = testRepositoryPath;
         this.scriptPath = scriptPath;
 
@@ -49,12 +49,12 @@ public class LocalCIBuildJob {
         dockerClient = DockerClientBuilder.getInstance(config).build();
     }
 
-    public String runBuildJob() throws IOException {
+    public void runBuildJob() throws IOException {
         // Create a volume to store the test results.
         Volume testResultsVolume = new Volume("/test-results");
 
         HostConfig bindConfig = new HostConfig();
-        bindConfig.setBinds(new Bind(submissionRepositoryPath.toString(), new Volume("/submission-repository")),
+        bindConfig.setBinds(new Bind(assignmentRepositoryPath.toString(), new Volume("/assignment-repository")),
                 new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
                 new Bind(scriptPath.toString(), new Volume("/script.sh")));
 
@@ -65,8 +65,6 @@ public class LocalCIBuildJob {
                 .withCmd("sh", "script.sh")
                 .withHostConfig(bindConfig)
                 .withVolumes(testResultsVolume)
-                .withEnv("SUBMISSION_REPOSITORY_PATH=" + submissionRepositoryPath,
-                        "TEST_REPOSITORY_PATH=" + testRepositoryPath)
                 .exec();
 
         try {
@@ -76,25 +74,34 @@ public class LocalCIBuildJob {
             // Wait for the container to finish.
             dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
 
-            // Next step: Wie kriege ich den Content eines dort erstellten Files in eine
-            // Form, in der ich ihn weiter verarbeiten kann? Der Code unten schreibt in
-            // test.txt den Inhalt des zweiten erstellten Test Files.
+            // Der Code unten schreibt in test.txt den Inhalt des zweiten erstellten Test
+            // Files.
 
             // Retrieve the test results from the volume.
             TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
-                    dockerClient.copyArchiveFromContainerCmd(container.getId(), "/test-results").exec());
+                    dockerClient
+                            .copyArchiveFromContainerCmd(container.getId(), "/test-repository/build/test-results/test")
+                            .exec());
 
-            // TODO: For this to work the host-test-results folder must exist -> Check
-            // whether folder exists else create.
-            Path testResultsHost = Paths.get("host-test-results", "results.txt").toAbsolutePath();
+            // Create folder to save the test results into.
+            Path testResultsHostPath = Path.of("host-test-result").toAbsolutePath();
+            Files.createDirectories(testResultsHostPath);
 
-            unTar(tarInputStream, Files.createFile(testResultsHost));
-
-            return Files.readString(testResultsHost);
+            // Go through all xml result files created in /build/test-results/test, and
+            // parse them with JUnitParser.
+            TarArchiveEntry tarEntry = null;
+            while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
+                if (!tarEntry.isDirectory()) {
+                    Path testResultHostPath = testResultsHostPath.resolve(tarEntry.getName());
+                    File testResultFile = Files.createFile(testResultHostPath).toFile();
+                    FileOutputStream fileOutputStream = new FileOutputStream(testResultFile);
+                    IOUtils.copy(tarInputStream, fileOutputStream);
+                    fileOutputStream.close();
+                }
+            }
         } catch (Exception e) {
             // TODO: handle exception
             System.out.println(e.getStackTrace());
-            return null;
         } finally {
             // Clean up the container.
             dockerClient.removeContainerCmd(container.getId()).exec();
