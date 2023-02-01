@@ -34,7 +34,14 @@ public class LocalCIBuildJob {
         this.submissionRepositoryPath = submissionRepositoryPath;
         this.testRepositoryPath = testRepositoryPath;
         this.scriptPath = scriptPath;
-        dockerClient = DockerClientBuilder.getInstance("tcp://localhost:2375").build();
+
+        String connectionUri;
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            connectionUri = "tcp://localhost:2375";
+        } else {
+            connectionUri = "unix:///var/run/docker.sock";
+        }
+        dockerClient = DockerClientBuilder.getInstance(connectionUri).build();
     }
 
     public String runBuildJob() throws IOException {
