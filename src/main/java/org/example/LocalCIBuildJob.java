@@ -50,8 +50,6 @@ public class LocalCIBuildJob {
     }
 
     public void runBuildJob() throws IOException {
-        // Create a volume to store the test results.
-        Volume testResultsVolume = new Volume("/test-results");
 
         HostConfig bindConfig = new HostConfig();
         bindConfig.setBinds(new Bind(assignmentRepositoryPath.toString(), new Volume("/assignment-repository")),
@@ -60,22 +58,21 @@ public class LocalCIBuildJob {
 
         // Create the container with the local paths to the Git repositories and the
         // shell script bound to it.
-        CreateContainerResponse container = dockerClient.createContainerCmd("openjdk:8-jre-alpine")
-                // .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
-                .withCmd("sh", "script.sh")
+        CreateContainerResponse container = dockerClient.createContainerCmd("bash:5.2.15")
+                .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
+                // .withCmd("sh", "script.sh")
                 .withHostConfig(bindConfig)
-                .withVolumes(testResultsVolume)
                 .exec();
 
         try {
             // Start the container.
             dockerClient.startContainerCmd(container.getId()).exec();
 
+            if (true)
+                return;
+
             // Wait for the container to finish.
             dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
-
-            // Der Code unten schreibt in test.txt den Inhalt des zweiten erstellten Test
-            // Files.
 
             // Retrieve the test results from the volume.
             TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
