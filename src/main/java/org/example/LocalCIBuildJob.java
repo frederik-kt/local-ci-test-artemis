@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -40,8 +41,6 @@ public class LocalCIBuildJob {
         // Create a volume to store the test results.
         Volume testResultsVolume = new Volume("/test-results");
 
-        Path testResultsHost = Paths.get("test-results").toAbsolutePath();
-
         HostConfig bindConfig = new HostConfig();
         bindConfig.setBinds(new Bind(submissionRepositoryPath.toString(), new Volume("/submission-repository")),
                 new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
@@ -52,7 +51,6 @@ public class LocalCIBuildJob {
         CreateContainerResponse container = dockerClient.createContainerCmd("openjdk:8-jre-alpine")
                 // .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
                 .withCmd("sh", "script.sh")
-                // "/test-results/test.txt")
                 .withHostConfig(bindConfig)
                 .withVolumes(testResultsVolume)
                 .withEnv("SUBMISSION_REPOSITORY_PATH=" + submissionRepositoryPath,
@@ -72,7 +70,9 @@ public class LocalCIBuildJob {
         TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
                 dockerClient.copyArchiveFromContainerCmd(container.getId(), "/test-results").exec());
 
-        unTar(tarInputStream, Paths.get("host-test-results/results.txt").toFile());
+        Path testResultsHost = Paths.get("host-test-results", "results.txt").toAbsolutePath();
+
+        unTar(tarInputStream, Files.createFile(testResultsHost));
 
         InputStream testResults = dockerClient.copyArchiveFromContainerCmd(container.getId(),
                 "/test-results").exec();
@@ -85,15 +85,15 @@ public class LocalCIBuildJob {
         return testResultsString;
     }
 
-    private void unTar(TarArchiveInputStream tarInputStream, File destFile) throws IOException {
+    private void unTar(TarArchiveInputStream tarInputStream, Path destFile) throws IOException {
         TarArchiveEntry tarEntry = null;
         while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
             if (tarEntry.isDirectory()) {
-                if (!destFile.exists()) {
-                    destFile.mkdirs();
+                if (!Files.exists(destFile)) {
+                    Files.createDirectory(destFile);
                 }
             } else {
-                FileOutputStream fileOutputStream = new FileOutputStream(destFile);
+                FileOutputStream fileOutputStream = new FileOutputStream(destFile.toFile());
                 IOUtils.copy(tarInputStream, fileOutputStream);
                 fileOutputStream.close();
             }
