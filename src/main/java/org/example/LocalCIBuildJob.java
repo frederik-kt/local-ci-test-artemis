@@ -6,7 +6,9 @@ import com.github.dockerjava.api.command.WaitContainerResultCallback;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -41,7 +43,10 @@ public class LocalCIBuildJob {
         } else {
             connectionUri = "unix:///var/run/docker.sock";
         }
-        dockerClient = DockerClientBuilder.getInstance(connectionUri).build();
+
+        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().withDockerHost(connectionUri)
+                .build();
+        dockerClient = DockerClientBuilder.getInstance(config).build();
     }
 
     public String runBuildJob() throws IOException {
