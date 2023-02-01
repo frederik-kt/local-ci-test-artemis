@@ -8,10 +8,16 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.core.DockerClientBuilder;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 
 public class LocalCIBuildJob {
 
@@ -39,8 +45,7 @@ public class LocalCIBuildJob {
         HostConfig bindConfig = new HostConfig();
         bindConfig.setBinds(new Bind(submissionRepositoryPath.toString(), new Volume("/submission-repository")),
                 new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
-                new Bind(scriptPath.toString(), new Volume("/script.sh")),
-                new Bind(testResultsHost.toString(), testResultsVolume));
+                new Bind(scriptPath.toString(), new Volume("/script.sh")));
 
         // Create the container with the local paths to the Git repositories and the
         // shell script bound to it.
@@ -49,7 +54,7 @@ public class LocalCIBuildJob {
                 .withCmd("sh", "script.sh")
                 // "/test-results/test.txt")
                 .withHostConfig(bindConfig)
-                // .withVolumes(testResultsVolume)
+                .withVolumes(testResultsVolume)
                 .withEnv("SUBMISSION_REPOSITORY_PATH=" + submissionRepositoryPath,
                         "TEST_REPOSITORY_PATH=" + testRepositoryPath)
                 .exec();
@@ -60,9 +65,17 @@ public class LocalCIBuildJob {
         // Wait for the container to finish.
         dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
 
+        // Next step: Wie kriege ich den Content eines dort erstellten Files in eine
+        // Form, in der ich ihn weiter verarbeiten kann?
+
         // Retrieve the test results from the volume.
+        TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
+                dockerClient.copyArchiveFromContainerCmd(container.getId(), "/test-results").exec());
+
+        unTar(tarInputStream, Paths.get("host-test-results/results.txt").toFile());
+
         InputStream testResults = dockerClient.copyArchiveFromContainerCmd(container.getId(),
-                "/test-results/test.txt").exec();
+                "/test-results").exec();
 
         String testResultsString = new String(testResults.readAllBytes());
 
@@ -70,6 +83,22 @@ public class LocalCIBuildJob {
         dockerClient.removeContainerCmd(container.getId()).exec();
 
         return testResultsString;
+    }
+
+    private void unTar(TarArchiveInputStream tarInputStream, File destFile) throws IOException {
+        TarArchiveEntry tarEntry = null;
+        while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
+            if (tarEntry.isDirectory()) {
+                if (!destFile.exists()) {
+                    destFile.mkdirs();
+                }
+            } else {
+                FileOutputStream fileOutputStream = new FileOutputStream(destFile);
+                IOUtils.copy(tarInputStream, fileOutputStream);
+                fileOutputStream.close();
+            }
+        }
+        tarInputStream.close();
     }
 
 }

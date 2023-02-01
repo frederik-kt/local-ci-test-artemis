@@ -11,4 +11,5 @@
 # Save the test results
 #mv $SUBMISSION_REPOSITORY_PATH
 
-echo $SUBMISSION_REPOSITORY_PATH > /test-results/test.txt
+echo "testxy" > /test-results/test.txt
+echo "anothertest" > /test-results/test2.txt
