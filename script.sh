@@ -1,5 +1,7 @@
 #!/bin/sh
 
+./gradlew clean test # Wo muss ich das machen? In Bamboo wird das assignment repository in einen "assignment"-Ordner ausgecheckt
+
 # Compile the source code
 #javac -cp $SUBMISSION_REPOSITORY_PATH/libs/*:$SUBMISSION_REPOSITORY_PATH/src -d $SUBMISSION_REPOSITORY_PATH/bin
 #$SUBMISSION_REPOSITORY_PATH/src/testpackage/Client.java
