@@ -30,7 +30,7 @@ public class LocalCIBuildJob {
         dockerClient = DockerClientBuilder.getInstance().build();
     }
 
-    public void runBuildJob() throws IOException {
+    public String runBuildJob() throws IOException {
         // Create a volume to store the test results.
         Volume testResultsVolume = new Volume("/test-results");
 
@@ -45,8 +45,8 @@ public class LocalCIBuildJob {
         // Create the container with the local paths to the Git repositories and the
         // shell script bound to it.
         CreateContainerResponse container = dockerClient.createContainerCmd("openjdk:8-jre-alpine")
-                .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
-                // .withCmd("echo", "$SUBMISSION_REPOSITORY_PATH", ">",
+                // .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
+                .withCmd("sh", "script.sh")
                 // "/test-results/test.txt")
                 .withHostConfig(bindConfig)
                 // .withVolumes(testResultsVolume)
@@ -58,20 +58,18 @@ public class LocalCIBuildJob {
         dockerClient.startContainerCmd(container.getId()).exec();
 
         // Wait for the container to finish.
-        // dockerClient.waitContainerCmd(container.getId()).exec(new
-        // WaitContainerResultCallback());
+        dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
 
         // Retrieve the test results from the volume.
-        // InputStream testResults =
-        // dockerClient.copyArchiveFromContainerCmd(container.getId(),
-        // "/test-results").exec();
+        InputStream testResults = dockerClient.copyArchiveFromContainerCmd(container.getId(),
+                "/test-results/test.txt").exec();
 
-        // String testResultsString = new String(testResults.readAllBytes());
+        String testResultsString = new String(testResults.readAllBytes());
 
         // Clean up the container.
-        // dockerClient.removeContainerCmd(container.getId()).exec();
+        dockerClient.removeContainerCmd(container.getId()).exec();
 
-        // return testResultsString;
+        return testResultsString;
     }
 
 }

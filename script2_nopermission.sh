@@ -1,0 +1,1 @@
+echo "test2" > ./test-results/test.txt

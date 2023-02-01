@@ -11,9 +11,8 @@ public class Main {
         Path scriptPath = Paths.get("script.sh").toAbsolutePath();
         LocalCIBuildJob localCIBuildJob = new LocalCIBuildJob(submissionRepositoryPath, testRepositoryPath, scriptPath);
         try {
-            // String result = localCIBuildJob.runBuildJob();
-            localCIBuildJob.runBuildJob();
-            // System.out.println("Result: " + result);
+            String result = localCIBuildJob.runBuildJob();
+            System.out.println("Result: " + result);
         } catch (IOException e) {
             System.out.println("Error: " + e.getMessage());
         }
