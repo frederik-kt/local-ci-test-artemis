@@ -34,7 +34,7 @@ public class LocalCIBuildJob {
         this.submissionRepositoryPath = submissionRepositoryPath;
         this.testRepositoryPath = testRepositoryPath;
         this.scriptPath = scriptPath;
-        dockerClient = DockerClientBuilder.getInstance().build();
+        dockerClient = DockerClientBuilder.getInstance("tcp://localhost:2375").build();
     }
 
     public String runBuildJob() throws IOException {
@@ -70,6 +70,8 @@ public class LocalCIBuildJob {
         TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
                 dockerClient.copyArchiveFromContainerCmd(container.getId(), "/test-results").exec());
 
+        // TODO: For this to work the host-test-results folder must exist -> Check
+        // whether folder exists else create.
         Path testResultsHost = Paths.get("host-test-results", "results.txt").toAbsolutePath();
 
         unTar(tarInputStream, Files.createFile(testResultsHost));
