@@ -51,7 +51,7 @@ public class LocalCIBuildJob {
 
     public void runBuildJob() throws IOException {
 
-        // TODO: Check out repositories instead of binding them into container.
+        // TODO: Check out repositories and clone shallowly instead of binding them into container.
 
         HostConfig bindConfig = new HostConfig();
         bindConfig.setBinds(new Bind(assignmentRepositoryPath.toString(), new Volume("/assignment-repository")),
