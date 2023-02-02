@@ -7,4 +7,6 @@ mkdir /test-repository/assignment
 cp -a /assignment-repository/. /test-repository/assignment/
 
 # Execute the tests.
-/test-repository/gradlew clean test
+cd /test-repository
+chmod +x gradlew
+./gradlew clean test

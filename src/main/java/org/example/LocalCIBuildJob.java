@@ -51,6 +51,8 @@ public class LocalCIBuildJob {
 
     public void runBuildJob() throws IOException {
 
+        // TODO: Check out repositories instead of binding them into container.
+
         HostConfig bindConfig = new HostConfig();
         bindConfig.setBinds(new Bind(assignmentRepositoryPath.toString(), new Volume("/assignment-repository")),
                 new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
@@ -58,7 +60,7 @@ public class LocalCIBuildJob {
 
         // Create the container with the local paths to the Git repositories and the
         // shell script bound to it.
-        CreateContainerResponse container = dockerClient.createContainerCmd("bash:5.2.15")
+        CreateContainerResponse container = dockerClient.createContainerCmd("ls1tum/artemis-maven-template:java17-13")
                 .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
                 // .withCmd("sh", "script.sh")
                 .withHostConfig(bindConfig)
