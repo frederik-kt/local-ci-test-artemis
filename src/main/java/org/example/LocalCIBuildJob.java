@@ -13,16 +13,16 @@ import com.github.dockerjava.core.DockerClientConfig;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.utils.IOUtils;
 
 public class LocalCIBuildJob {
+
+    private final BuildTool buildTool;
 
     private final Path assignmentRepositoryPath;
 
@@ -32,7 +32,8 @@ public class LocalCIBuildJob {
 
     private final DockerClient dockerClient;
 
-    public LocalCIBuildJob(Path assignmentRepositoryPath, Path testRepositoryPath, Path scriptPath) {
+    public LocalCIBuildJob(BuildTool buildTool, Path assignmentRepositoryPath, Path testRepositoryPath, Path scriptPath) {
+        this.buildTool = buildTool;
         this.assignmentRepositoryPath = assignmentRepositoryPath;
         this.testRepositoryPath = testRepositoryPath;
         this.scriptPath = scriptPath;
@@ -61,17 +62,15 @@ public class LocalCIBuildJob {
         // Create the container with the local paths to the Git repositories and the
         // shell script bound to it.
         CreateContainerResponse container = dockerClient.createContainerCmd("ls1tum/artemis-maven-template:java17-13")
-                .withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
-                // .withCmd("sh", "script.sh")
+                //.withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
+                .withCmd("sh", "script.sh")
                 .withHostConfig(bindConfig)
+                .withEnv("BUILD_TOOL=" + buildTool.toString().toLowerCase())
                 .exec();
 
         try {
             // Start the container.
             dockerClient.startContainerCmd(container.getId()).exec();
-
-            if (true)
-                return;
 
             // Wait for the container to finish.
             dockerClient.waitContainerCmd(container.getId()).exec(new WaitContainerResultCallback());
@@ -79,7 +78,7 @@ public class LocalCIBuildJob {
             // Retrieve the test results from the volume.
             TarArchiveInputStream tarInputStream = new TarArchiveInputStream(
                     dockerClient
-                            .copyArchiveFromContainerCmd(container.getId(), "/test-repository/build/test-results/test")
+                            .copyArchiveFromContainerCmd(container.getId(), "/repositories/test-repository/build/test-results/test")
                             .exec());
 
             // Create folder to save the test results into.
