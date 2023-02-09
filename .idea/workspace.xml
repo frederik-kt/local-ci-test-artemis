@@ -4,8 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cfe23a19-826f-4331-90fd-656198bcbe8c" name="Changes" comment="access test XML files">
+    <list default="true" id="cfe23a19-826f-4331-90fd-656198bcbe8c" name="Changes" comment="add bare maven repositories">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/LocalCIContainerResultCallback.java" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +103,7 @@
       <workItem from="1675165171546" duration="7456000" />
       <workItem from="1675255123790" duration="2271000" />
       <workItem from="1675755208007" duration="8928000" />
-      <workItem from="1675871790239" duration="7721000" />
+      <workItem from="1675871790239" duration="23038000" />
     </task>
     <task id="LOCAL-00001" summary="add bare repositories, merge script">
       <created>1675795481493</created>
@@ -117,7 +119,14 @@
       <option name="project" value="LOCAL" />
       <updated>1675880764801</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="add bare maven repositories">
+      <created>1675939040673</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1675939040673</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -128,7 +137,24 @@
     <MESSAGE value="add example repositories" />
     <MESSAGE value="add bare repositories, merge script" />
     <MESSAGE value="access test XML files" />
-    <option name="LAST_COMMIT_MESSAGE" value="access test XML files" />
+    <MESSAGE value="add bare maven repositories" />
+    <option name="LAST_COMMIT_MESSAGE" value="add bare maven repositories" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java</url>
+          <line>153</line>
+          <option name="timeStamp" value="17" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java</url>
+          <line>119</line>
+          <option name="timeStamp" value="22" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

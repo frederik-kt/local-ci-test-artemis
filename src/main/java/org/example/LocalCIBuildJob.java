@@ -1,7 +1,9 @@
 package org.example;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
@@ -9,18 +11,16 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.utils.IOUtils;
 
 public class LocalCIBuildJob {
 
@@ -54,34 +54,44 @@ public class LocalCIBuildJob {
 
     public void runBuildJob() throws IOException {
 
-        // TODO: Check out repositories and clone shallowly instead of binding them into container.
+        HostConfig hostConfig = HostConfig.newHostConfig()
+                .withAutoRemove(true) // Automatically remove the container when it exits.
+                .withBinds(new Bind(assignmentRepositoryPath.toString(), new Volume("/assignment-repository")),
+                        new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
+                        new Bind(scriptPath.toString(), new Volume("/script.sh")));
 
-        HostConfig bindConfig = new HostConfig();
-        bindConfig.setBinds(new Bind(assignmentRepositoryPath.toString(), new Volume("/assignment-repository")),
-                new Bind(testRepositoryPath.toString(), new Volume("/test-repository")),
-                new Bind(scriptPath.toString(), new Volume("/script.sh")));
-
-        // Create the container with the local paths to the Git repositories and the
-        // shell script bound to it.
+        // Create the container from the "ls1tum/artemis-maven-template:java17-13" image with the local paths to the Git repositories and the shell script bound to it.
         CreateContainerResponse container = dockerClient.createContainerCmd("ls1tum/artemis-maven-template:java17-13")
-                //.withCmd("/bin/sh", "-c", "while true; do echo 'running'; sleep 1; done")
-                .withCmd("sh", "script.sh")
-                .withHostConfig(bindConfig)
+                .withHostConfig(hostConfig)
                 .withEnv("ARTEMIS_BUILD_TOOL=" + buildTool.toString().toLowerCase(), "ARTEMIS_DEFAULT_BRANCH=main") // TODO: Replace with default branch for participation.
+                // Command to run when the container starts. This is the command that will be executed in the container's main process, which runs in the foreground and blocks the container from exiting until it finishes.
+                // It waits until the script that is running the tests (see below execCreateCmdResponse) is completed, which is running in the background and indicates termination by creating a file "script_completed.txt" in the root directory.
+                .withCmd("sh", "-c", "while [ ! -f /script_completed.txt ]; do sleep 0.5; done")
+                //.withCmd("tail", "-f", "/dev/null") // Activate for debugging purposes instead of the above command to get a running container that you can peek into using "docker exec -it <container-id> /bin/bash".
                 .exec();
 
         try {
             // Start the container.
             dockerClient.startContainerCmd(container.getId()).exec();
 
-            // Wait for the container to finish. TODO: Not sure if this works, had at least one instance where the test results folder was not found after.
-            dockerClient.waitContainerCmd(container.getId()).exec(new LocalCIContainerResultCallback());
+            // The "sh script.sh" command specified here is run inside the container as an additional process. This command runs in the background, independent of the container's main process. The execution command can run concurrently with the main process.
+            // Creates a script_completed file in the container's root directory when the script finishes. The main process is waiting for this file to appear and then stops the main process, thus stopping the container.
+            ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(container.getId()).withAttachStdout(true).withAttachStderr(true).withCmd("sh", "-c", "sh script.sh; touch /script_completed.txt").exec();
 
-//            try {
-//                Thread.sleep(60000);
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
+            final CountDownLatch latch = new CountDownLatch(1);
+            dockerClient.execStartCmd(execCreateCmdResponse.getId()).exec(new ResultCallback.Adapter<>() {
+                @Override
+                public void onComplete() {
+                    latch.countDown();
+                }
+            });
+
+            try {
+                // Block until the latch reaches 0 or until the thread is interrupted.
+                latch.await();
+            } catch (InterruptedException e) {
+                throw new IllegalStateException("Interrupted while waiting for command to complete", e);
+            }
 
             // When Gradle was used as the build tool, the test results are located in /repositories/test-repository/build/test-resuls/test/TEST-*.xml.
             // When Maven was used as the build tool, the test results are located in /repositories/test-repository/target/surefire-reports/TEST-*.xml.
@@ -202,28 +212,8 @@ public class LocalCIBuildJob {
             System.out.println(buildJob);
 
         } catch (Exception e) {
-            // TODO: handle exception
-            System.out.println(e.getStackTrace());
-        } finally {
-            // Clean up the container.
-            dockerClient.removeContainerCmd(container.getId()).exec();
+            // TODO: Handle exception, i.e. notify Artemis that the build failed because of some internal issue.
+            System.out.println(e.getMessage());
         }
     }
-
-    private void unTar(TarArchiveInputStream tarInputStream, Path destFile) throws IOException {
-        TarArchiveEntry tarEntry = null;
-        while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
-            if (tarEntry.isDirectory()) {
-                if (!Files.exists(destFile)) {
-                    Files.createDirectory(destFile);
-                }
-            } else {
-                FileOutputStream fileOutputStream = new FileOutputStream(destFile.toFile());
-                IOUtils.copy(tarInputStream, fileOutputStream);
-                fileOutputStream.close();
-            }
-        }
-        tarInputStream.close();
-    }
-
 }
