@@ -4,14 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cfe23a19-826f-4331-90fd-656198bcbe8c" name="Changes" comment="add bare repositories, merge script">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJobDTO.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/LocalCIContainerResultCallback.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/LocalCITestCaseDTO.java" afterDir="false" />
+    <list default="true" id="cfe23a19-826f-4331-90fd-656198bcbe8c" name="Changes" comment="access test XML files">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/script.sh" beforeDir="false" afterPath="$PROJECT_DIR$/script.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/Main.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -107,7 +101,7 @@
       <workItem from="1675165171546" duration="7456000" />
       <workItem from="1675255123790" duration="2271000" />
       <workItem from="1675755208007" duration="8928000" />
-      <workItem from="1675871790239" duration="6930000" />
+      <workItem from="1675871790239" duration="7721000" />
     </task>
     <task id="LOCAL-00001" summary="add bare repositories, merge script">
       <created>1675795481493</created>
@@ -116,7 +110,14 @@
       <option name="project" value="LOCAL" />
       <updated>1675795481493</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="access test XML files">
+      <created>1675880764801</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1675880764801</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -126,18 +127,8 @@
     <MESSAGE value="first attempt" />
     <MESSAGE value="add example repositories" />
     <MESSAGE value="add bare repositories, merge script" />
-    <option name="LAST_COMMIT_MESSAGE" value="add bare repositories, merge script" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/org/example/LocalCIBuildJob.java</url>
-          <line>112</line>
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="access test XML files" />
+    <option name="LAST_COMMIT_MESSAGE" value="access test XML files" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

@@ -2,7 +2,6 @@ package org.example;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.WaitContainerResultCallback;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Volume;
@@ -14,7 +13,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import javax.xml.stream.XMLInputFactory;
@@ -76,7 +74,7 @@ public class LocalCIBuildJob {
             // Start the container.
             dockerClient.startContainerCmd(container.getId()).exec();
 
-            // Wait for the container to finish. TODO: Not sure if this works, had at least one instance where the test repository was not found after.
+            // Wait for the container to finish. TODO: Not sure if this works, had at least one instance where the test results folder was not found after.
             dockerClient.waitContainerCmd(container.getId()).exec(new LocalCIContainerResultCallback());
 
 //            try {
