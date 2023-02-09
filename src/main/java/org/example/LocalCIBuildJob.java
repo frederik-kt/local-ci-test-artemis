@@ -11,7 +11,7 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,6 +78,7 @@ public class LocalCIBuildJob {
             // Creates a script_completed file in the container's root directory when the script finishes. The main process is waiting for this file to appear and then stops the main process, thus stopping the container.
             ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(container.getId()).withAttachStdout(true).withAttachStderr(true).withCmd("sh", "-c", "sh script.sh; touch /script_completed.txt").exec();
 
+            // Start the command and wait for it to complete.
             final CountDownLatch latch = new CountDownLatch(1);
             dockerClient.execStartCmd(execCreateCmdResponse.getId()).exec(new ResultCallback.Adapter<>() {
                 @Override
@@ -93,8 +94,8 @@ public class LocalCIBuildJob {
                 throw new IllegalStateException("Interrupted while waiting for command to complete", e);
             }
 
-            // When Gradle was used as the build tool, the test results are located in /repositories/test-repository/build/test-resuls/test/TEST-*.xml.
-            // When Maven was used as the build tool, the test results are located in /repositories/test-repository/target/surefire-reports/TEST-*.xml.
+            // When Gradle is used as the build tool, the test results are located in /repositories/test-repository/build/test-resuls/test/TEST-*.xml.
+            // When Maven is used as the build tool, the test results are located in /repositories/test-repository/target/surefire-reports/TEST-*.xml.
             String testResultsPath;
             if (buildTool == BuildTool.GRADLE) {
                 testResultsPath = "/repositories/test-repository/build/test-results/test";
@@ -110,6 +111,30 @@ public class LocalCIBuildJob {
                             .copyArchiveFromContainerCmd(container.getId(), testResultsPath)
                             .exec());
 
+            String resultsPath = "C:\\Users\\Kutsch\\IdeaProjects\\local-ci-test-artemis\\results\\";
+
+            // For test purpuses, extract the contents of the tar archive. TODO: Try to go through entries in the tar file directly.
+            TarArchiveEntry tarEntry;
+            while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
+                if (tarEntry.isDirectory()) {
+                    // create the directory if it doesn't exist
+                    new File(resultsPath + tarEntry.getName()).mkdirs();
+                } else {
+                    // create the file if it doesn't exist
+                    File outputFile = new File(resultsPath + tarEntry.getName());
+                    outputFile.createNewFile();
+
+                    // write the contents of the tar entry to the file
+                    try (FileOutputStream fileOutputStream = new FileOutputStream(outputFile)) {
+                        int count;
+                        byte[] data = new byte[2048];
+                        while ((count = tarInputStream.read(data)) != -1) {
+                            fileOutputStream.write(data, 0, count);
+                        }
+                    }
+                }
+            }
+
             // Go through all xml result files created in /build/test-results/test, and extract data out of them.
             boolean isBuildSuccessful = true;
             List<LocalCITestCaseDTO> failedTests = new ArrayList<>();
@@ -117,86 +142,116 @@ public class LocalCIBuildJob {
 
             List<String> timestamps = new ArrayList<>();
 
-            // Create an instance of the StAX input factory.
             XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
 
-            TarArchiveEntry tarEntry;
-            while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
-                if (!tarEntry.isDirectory() && tarEntry.getName().startsWith(buildTool == BuildTool.GRADLE ? "test" : "surefire-reports" + "/TEST-") && tarEntry.getName().endsWith(".xml")) {
-                    // Create an XML stream reader for the entry.
-                    XMLStreamReader xmlStreamReader = xmlInputFactory.createXMLStreamReader(tarInputStream);
+            File dir = new File(resultsPath + "test");
+            File[] directoryListing = dir.listFiles();
+            if (directoryListing != null) {
+                for (File child : directoryListing) {
+                    if (!child.isDirectory() && child.getName().startsWith("TEST-") && child.getName().endsWith(".xml")) {
+                        // Create an XML stream reader for the entry.
+                        XMLStreamReader xmlStreamReader = xmlInputFactory.createXMLStreamReader(new FileInputStream(child));
 
-                    // Move to the start element.
-                    while (xmlStreamReader.hasNext() && !xmlStreamReader.isStartElement()) {
-                        xmlStreamReader.next();
-                    }
-
-                    // Check if the start element is the "testsuite" node.
-                    if (!xmlStreamReader.getLocalName().equals("testsuite")) {
-                        throw new IllegalStateException("Expected testsuite element, but got " + xmlStreamReader.getLocalName());
-                    }
-
-                    // Extract the timestamp attribute from the "testsuite" node.
-                    String timestamp = xmlStreamReader.getAttributeValue(null, "timestamp");
-                    timestamps.add(timestamp);
-
-                    if (xmlStreamReader.hasNext()) {
-                        xmlStreamReader.next();
-                    }
-
-                    // Go through all testcase nodes.
-                    while (xmlStreamReader.getLocalName().equals("testcase")) {
-                        // Extract the name attribute from the "testcase" node.
-                        String name = xmlStreamReader.getAttributeValue(null, "name");
-
-                        // Check if there is a failure node inside the testcase node.
-                        if (xmlStreamReader.hasNext() && xmlStreamReader.isStartElement() && xmlStreamReader.getLocalName().equals("failure")) {
-                            // Extract the message attribute from the "failure" node.
-                            String message = xmlStreamReader.getAttributeValue(null, "message");
-
-                            // Add the failed test to the list of failed tests.
-                            failedTests.add(new LocalCITestCaseDTO(name, List.of(message)));
-
-                            isBuildSuccessful = false;
-                        } else {
-                            // Add the successful test to the list of successful tests.
-                            successfulTests.add(new LocalCITestCaseDTO(name, null));
+                        // Move to the first start element.
+                        while (xmlStreamReader.hasNext() && !xmlStreamReader.isStartElement()) {
+                            xmlStreamReader.next();
                         }
 
-                        xmlStreamReader.next();
+                        // Check if the start element is the "testsuite" node.
+                        if (!xmlStreamReader.getLocalName().equals("testsuite")) {
+                            throw new IllegalStateException("Expected testsuite element, but got " + xmlStreamReader.getLocalName());
+                        }
+
+                        // Extract the timestamp attribute from the "testsuite" node.
+                        String timestamp = xmlStreamReader.getAttributeValue(null, "timestamp");
+                        timestamps.add(timestamp);
+
+                        // Go through all testcase nodes.
+                        while (xmlStreamReader.hasNext()) {
+                            xmlStreamReader.next();
+
+                            if (xmlStreamReader.isStartElement() && xmlStreamReader.getLocalName().equals("testcase")) {
+                                // Extract the name attribute from the "testcase" node.
+                                String name = xmlStreamReader.getAttributeValue(null, "name");
+
+                                // Check if there is a failure node inside the testcase node.
+                                // Call next() until there is an end element (no failure node exists inside the testcase node) or a start element (failure node exists inside the testcase node).
+                                xmlStreamReader.next();
+                                while (!(xmlStreamReader.isEndElement() || xmlStreamReader.isStartElement())) {
+                                    xmlStreamReader.next();
+                                }
+                                if (xmlStreamReader.isStartElement() && xmlStreamReader.getLocalName().equals("failure")) {
+                                    // Extract the message attribute from the "failure" node.
+                                    String message = xmlStreamReader.getAttributeValue(null, "message");
+
+                                    // Add the failed test to the list of failed tests.
+                                    failedTests.add(new LocalCITestCaseDTO(name, List.of(message)));
+
+                                    // If there is at least one test case with a failure node, the build is not successful.
+                                    isBuildSuccessful = false;
+                                } else {
+                                    // Add the successful test to the list of successful tests.
+                                    successfulTests.add(new LocalCITestCaseDTO(name, null));
+                                }
+                            }
+                        }
+                        // Close the XML stream reader.
+                        xmlStreamReader.close();
                     }
-
-                    // Close the XML stream reader.
-                    xmlStreamReader.close();
-
-                    // If the number of skipped, failures or errors is greater than 0, the build is not successful.
-
-                    // For each test case get the name and the message and sort it into successful and failed tests.
-                    // <testcase name="testMethods[SortStrategy]" classname="testpackage.MethodTest" time="0.02"/> for a succesful test case.
-                    // <testcase name="testMethods[Context]" classname="testpackage.MethodTest" time="0.032">
-                    //    <failure message="org.opentest4j.AssertionFailedError: The exercise expects a class with the name Context in the package testpackage. You did not implement the class in the exercise." type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: The exercise expects a class with the name Context in the package testpackage. You did not implement the class in the exercise.
-                    //        at app//de.tum.in.test.api.structural.StructuralTestProvider.failure(StructuralTestProvider.java:423)
-                    //        at app//de.tum.in.test.api.structural.StructuralTestProvider.findClassForTestType(StructuralTestProvider.java:105)
-                    //        at app//de.tum.in.test.api.structural.MethodTestProvider.testMethods(MethodTestProvider.java:76)
-                    //        at app//de.tum.in.test.api.structural.MethodTestProvider.lambda$generateTestsForAllClasses$0(MethodTestProvider.java:53)
-                    //        at app//org.junit.jupiter.engine.descriptor.DynamicTestTestDescriptor.lambda$execute$0(DynamicTestTestDescriptor.java:53)
-                    //        at app//org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
-                    //        at app//de.tum.in.test.api.internal.TimeoutUtils.rethrowThrowableSafe(TimeoutUtils.java:47)
-                    //        at app//de.tum.in.test.api.internal.TimeoutUtils.lambda$performTimeoutExecution$1(TimeoutUtils.java:42)
-                    //        at java.base@17.0.5/java.util.concurrent.FutureTask.run(FutureTask.java:264)
-                    //        at java.base@17.0.5/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
-                    //        at java.base@17.0.5/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
-                    //        at java.base@17.0.5/java.lang.Thread.run(Thread.java:833)
-                    //</failure>
-                    //  </testcase> for a failed test case.
-
-                    // Extract the timestamp from the test results file.
-
                 }
             }
 
-            // Close the TAR archive file.
-            tarInputStream.close();
+//            TarArchiveEntry tarEntry;
+//            while ((tarEntry = tarInputStream.getNextTarEntry()) != null) {
+//                if (!tarEntry.isDirectory() && tarEntry.getName().startsWith(buildTool == BuildTool.GRADLE ? "test" : "surefire-reports" + "/TEST-") && tarEntry.getName().endsWith(".xml")) {
+//                    // Create an XML stream reader for the entry.
+//                    XMLStreamReader xmlStreamReader = xmlInputFactory.createXMLStreamReader(tarInputStream);
+//
+//                    // Move to the first start element.
+//                    while (xmlStreamReader.hasNext() && !xmlStreamReader.isStartElement()) {
+//                        xmlStreamReader.next();
+//                    }
+//
+//                    // Check if the start element is the "testsuite" node.
+//                    if (!xmlStreamReader.getLocalName().equals("testsuite")) {
+//                        throw new IllegalStateException("Expected testsuite element, but got " + xmlStreamReader.getLocalName());
+//                    }
+//
+//                    // Extract the timestamp attribute from the "testsuite" node.
+//                    String timestamp = xmlStreamReader.getAttributeValue(null, "timestamp");
+//                    timestamps.add(timestamp);
+//
+//                    // Go through all testcase nodes.
+//                    while (xmlStreamReader.hasNext()) {
+//                        xmlStreamReader.next();
+//
+//                        if (xmlStreamReader.isStartElement() && xmlStreamReader.getLocalName().equals("testcase")) {
+//                            // Extract the name attribute from the "testcase" node.
+//                            String name = xmlStreamReader.getAttributeValue(null, "name");
+//
+//                            // Check if there is a failure node inside the testcase node.
+//                            if (xmlStreamReader.hasNext() && xmlStreamReader.isStartElement() && xmlStreamReader.getLocalName().equals("failure")) {
+//                                // Extract the message attribute from the "failure" node.
+//                                String message = xmlStreamReader.getAttributeValue(null, "message");
+//
+//                                // Add the failed test to the list of failed tests.
+//                                failedTests.add(new LocalCITestCaseDTO(name, List.of(message)));
+//
+//                                // If there is at least one test case with a failure node, the build is not successful.
+//                                isBuildSuccessful = false;
+//                            } else {
+//                                // Add the successful test to the list of successful tests.
+//                                successfulTests.add(new LocalCITestCaseDTO(name, null));
+//                            }
+//                        }
+//                    }
+//                    // Close the XML stream reader.
+//                    xmlStreamReader.close();
+//                }
+//            }
+//
+//            // Close the TAR archive input stream.
+//            tarInputStream.close();
 
             // Find the latest timestamp found in the test results.
 
